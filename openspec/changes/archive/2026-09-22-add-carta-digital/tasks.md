@@ -25,7 +25,7 @@
 - [x] 4.1 Implementar la vista pública de carta con categorías y platos en orden, precio en pesos mexicanos con dos decimales, fotos opcionales y alérgenos visibles sólo cuando estén declarados; verificar los escenarios «Plato con alérgenos declarados», «Plato sin alérgenos declarados» y «Precio con centavos» mediante pruebas de interfaz.
 - [x] 4.2 Entregar desde el inicio todos los datos textuales de la carta y aplicar carga diferida a fotografías fuera del área visible inicial; verificar el escenario «Fotografía diferida al desplazarse» y que no se soliciten esas imágenes antes del desplazamiento.
 - [x] 4.3 Implementar la vista de administración responsive para teléfono, con formularios, selección opcional de alérgenos, carga de fotografía y controles de orden/archivado/restauración; verificar en viewport móvil que las acciones actualicen la carta pública.
-- [ ] 4.4 Aplicar estilos de alto contraste, tipografía legible y objetivos táctiles adecuados a la carta pública; verificar con pruebas de accesibilidad automatizadas y revisión manual en viewport móvil.
+- [x] 4.4 Aplicar estilos de alto contraste, tipografía legible y objetivos táctiles adecuados a la carta pública; verificar con pruebas de accesibilidad automatizadas y revisión manual en viewport móvil.
 
 ## 5. Verificación integral
 
