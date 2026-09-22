@@ -1,0 +1,12 @@
+node_modules/
+.npm-prebuilds/
+.tools/
+dist/
+.env
+data/
+media/
+qr/
+coverage/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal

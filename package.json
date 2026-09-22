@@ -1,0 +1,37 @@
+{
+  "name": "cartaya",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.14 <23"
+  },
+  "scripts": {
+    "dev": "concurrently \"vite --host 0.0.0.0\" \"node --watch src/server/index.js\"",
+    "build": "vite build",
+    "start": "node src/server/index.js",
+    "test": "npm run build && vitest run",
+    "test:watch": "vitest",
+    "qr": "node src/server/generate-qr.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "express": "^5.1.0",
+    "multer": "^2.0.2",
+    "qrcode": "^1.5.4",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "sharp": "^0.34.3"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.8.0",
+    "@testing-library/react": "^16.3.0",
+    "@vitejs/plugin-react": "^5.0.2",
+    "axe-core": "^4.10.3",
+    "concurrently": "^9.2.1",
+    "jsdom": "^26.1.0",
+    "supertest": "^7.1.4",
+    "vite": "^7.1.6",
+    "vitest": "^3.2.4"
+  }
+}
