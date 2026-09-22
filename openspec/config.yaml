@@ -18,7 +18,7 @@ context: |
 
   Principios innegociables:
   1. Idioma y mercado: todo el producto (interfaz, textos, specs, commits,
-     documentación) en español de México. Precios en pesos Mexicanos con IVA incluido.
+     documentación) en español de México. Precios en pesos mexicanos, mostrados con centavos.
   2. Simplicidad ante todo: es una aplicación para una cafetería de barrio,
      no una plataforma. Ante dos soluciones, siempre la más simple.
   3. Privacidad por diseño: el cliente final NUNCA se registra ni aporta
@@ -28,8 +28,9 @@ context: |
      + deltas) o regularizarse como tal. Un comportamiento que
      openspec/specs/ no describe es un defecto, aunque el código funcione.
   5. Accesibilidad real: la carta la usan personas mayores en un móvil a
-     contraluz: tipografía legible, contraste alto, botones grandes. Los
-     alérgenos se muestran siempre de forma visible (obligación legal).
+     contraluz: tipografía legible, contraste alto, botones grandes. Cuando
+     un plato tenga alérgenos declarados, se muestran de forma visible; si no
+     tiene alérgenos declarados, no se muestra ninguna leyenda de alérgenos.
 
 # Reglas por artefacto: solo se inyectan al generar ese artefacto.
 rules:
