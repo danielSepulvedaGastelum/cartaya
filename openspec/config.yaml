@@ -1,4 +1,4 @@
-schema: spec-drivenschema: spec-driven
+schema: spec-driven
 
 # Se inyecta en TODAS las generaciones de artefactos. Conciso a propósito.
 context: |
