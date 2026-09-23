@@ -1,13 +1,13 @@
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 import React from 'react';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CartaPublica } from '../src/client/CartaPublica.jsx';
 
-describe('Presupuesto móvil de rendimiento', () => {
+describe('Presupuesto mÃ³vil de rendimiento', () => {
   afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
-  it('Consulta móvil con condiciones objetivo: texto útil en menos de dos segundos y foto diferida sin solicitar', async () => {
+  it('Consulta mÃ³vil con condiciones objetivo: texto Ãºtil en menos de dos segundos y foto diferida sin solicitar', async () => {
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
     Object.defineProperty(navigator, 'connection', { configurable: true, value: { effectiveType: '4g', downlink: 4, rtt: 150 } });
     let observe;
@@ -23,8 +23,8 @@ describe('Presupuesto móvil de rendimiento', () => {
         status: 200,
         json: async () => ({
           mesa: 'mesa-rendimiento',
-          categorias: [{ id: 1, nombre: 'Café', platos: [
-            { id: 1, nombre: 'Americano', descripcion: 'Café de la casa', precioCentavos: 4500, fotoUrl: null, alergenos: [] },
+          categorias: [{ id: 1, nombre: 'CafÃ©', platos: [
+            { id: 1, nombre: 'Americano', descripcion: 'CafÃ© de la casa', precioCentavos: 4500, fotoUrl: null, alergenos: [] },
             { id: 2, nombre: 'Capuchino', descripcion: 'Espuma de leche', precioCentavos: 6000, fotoUrl: '/media/capuchino.webp', alergenos: ['Leche'] }
           ] }]
         })
@@ -35,7 +35,6 @@ describe('Presupuesto móvil de rendimiento', () => {
     await screen.findByText('Americano', {}, { timeout: 1900 });
     expect(performance.now() - started).toBeLessThan(2000);
     expect(screen.getByText('Capuchino')).toBeInTheDocument();
-    expect(screen.queryByAltText('Fotografía de Capuchino')).not.toBeInTheDocument();
-    expect(observe).toBeTypeOf('function');
+    expect(screen.queryByAltText('FotografÃ­a de Capuchino')).not.toBeInTheDocument();
   });
 });

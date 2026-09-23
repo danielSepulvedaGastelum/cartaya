@@ -91,3 +91,13 @@ textarea { min-height: 100px; resize: vertical; }
 .lineas-pedido small { display: block; margin: 0.4rem 0; color: #35443e; }
 .total-pedido { font-size: 1.2rem; }
 .plato-contenido > button { width: 100%; margin-top: 0.75rem; }
+
+.admin-nav { display: flex; gap: .5rem; margin: 1rem 0; }
+.admin-nav button[aria-pressed="true"] { background: #17624f; color: white; }
+.viendo-mesas .productos-panel { display: none; }
+.mesa-inactiva { filter: grayscale(1); opacity: .7; background: #f1f1f1; }
+.qr-mesa { display: block; width: 150px; max-width: 100%; margin: .75rem 0; }
+.historial-mesa { list-style: none; padding: .5rem 0 0; }
+.selector-cantidad { display: inline-flex; align-items: center; gap: .7rem; margin-top: .75rem; }
+.selector-cantidad button { min-width: 48px; min-height: 48px; padding: .4rem; }
+.panel-indicacion { position: sticky; bottom: 1rem; z-index: 2; box-shadow: 0 4px 18px #0003; }

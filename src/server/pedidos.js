@@ -1,5 +1,4 @@
-import crypto from 'node:crypto';
-import { mesaToken } from './generate-qr.js';
+﻿import crypto from 'node:crypto';
 
 export class PedidoError extends Error {
   constructor(message, status = 400, details = {}) {
@@ -39,15 +38,17 @@ function serializarPedido(db, pedidoId) {
   };
 }
 
-export function createPedidos(db, config, catalogo) {
+export function createPedidos(db, mesas, catalogo) {
   function resolverMesa(token) {
-    if (typeof token !== 'string' || !token) return null;
-    return config.mesas.find((mesa) => mesaToken(mesa, config.sessionSecret) === token) || null;
+    const mesa = mesas.porToken(token);
+    return mesa && mesa.activa ? mesa : null;
   }
 
   function normalizar({ mesa, claveIdempotencia, lineas }) {
+    const mesaRegistrada = mesas.porToken(mesa);
+    if (mesaRegistrada && !mesaRegistrada.activa) throw new PedidoError('Esta mesa no acepta pedidos');
     const mesaResuelta = resolverMesa(mesa);
-    if (!mesaResuelta) throw new PedidoError('La mesa no es v?lida');
+    if (!mesaResuelta) throw new PedidoError('La mesa no es valida');
     if (typeof claveIdempotencia !== 'string' || !claveIdempotencia.trim() || claveIdempotencia.length > 128) {
       throw new PedidoError('La clave de idempotencia es obligatoria y debe tener hasta 128 caracteres');
     }
@@ -95,7 +96,7 @@ export function createPedidos(db, config, catalogo) {
     const pedido = normalizar(input);
     const hash = solicitudHash(pedido.lineas);
     const existente = db.prepare('SELECT id, solicitud_hash FROM pedidos WHERE mesa = ? AND clave_idempotencia = ?')
-      .get(pedido.mesa, pedido.claveIdempotencia);
+      .get(pedido.mesa.nombre, pedido.claveIdempotencia);
     if (existente) {
       if (existente.solicitud_hash !== hash) throw new PedidoError('La clave de idempotencia ya se us? con otro pedido', 409);
       return { tipo: 'confirmado', pedido: serializarPedido(db, existente.id), reintento: true };
@@ -111,8 +112,8 @@ export function createPedidos(db, config, catalogo) {
     const preciosModificados = lineas.filter((linea) => pedido.lineas.find((original) => original.lineaId === linea.lineaId).precioCentavos !== linea.precioCentavos);
     if (preciosModificados.length) return { tipo: 'precio_modificado', preciosModificados, lineas, totalCentavos };
 
-    const result = db.prepare(`INSERT INTO pedidos (mesa, total_centavos, clave_idempotencia, solicitud_hash)
-      VALUES (?, ?, ?, ?)`).run(pedido.mesa, totalCentavos, pedido.claveIdempotencia, hash);
+    const result = db.prepare(`INSERT INTO pedidos (mesa, mesa_id, total_centavos, clave_idempotencia, solicitud_hash)
+      VALUES (?, ?, ?, ?, ?)`).run(pedido.mesa.nombre, pedido.mesa.id, totalCentavos, pedido.claveIdempotencia, hash);
     const insertarLinea = db.prepare(`INSERT INTO pedido_lineas
       (pedido_id, plato_id, nombre_plato, cantidad, nota, precio_unitario_centavos, subtotal_centavos)
       VALUES (?, ?, ?, ?, ?, ?, ?)`);

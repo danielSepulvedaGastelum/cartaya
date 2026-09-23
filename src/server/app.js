@@ -1,12 +1,14 @@
-import fs from 'node:fs';
+﻿import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
 import multer from 'multer';
 import sharp from 'sharp';
+import QRCode from 'qrcode';
 import { createDatabase } from './database.js';
 import { createCatalogo } from './catalogo.js';
 import { createAuth } from './auth.js';
 import { createPedidos, PedidoError } from './pedidos.js';
+import { createMesas } from './mesas.js';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -18,8 +20,9 @@ function asyncRoute(handler) {
 export function createApp(config) {
   const db = createDatabase(config.databasePath);
   const catalogo = createCatalogo(db);
+  const mesas = createMesas(db, config);
   const auth = createAuth(config);
-  const pedidos = createPedidos(db, config, catalogo);
+  const pedidos = createPedidos(db, mesas, catalogo);
   fs.mkdirSync(config.mediaDir, { recursive: true });
 
   const app = express();
@@ -32,8 +35,8 @@ export function createApp(config) {
 
   app.get('/api/carta', (req, res) => {
     const mesa = typeof req.query.mesa === 'string' ? req.query.mesa : '';
-    const mesaValida = Boolean(pedidos.resolverMesa(mesa));
-    res.json({ mesa, ...(mesaValida ? { mesaValida: true } : {}), categorias: catalogo.cartaPublica() });
+    const mesaEncontrada = mesas.porToken(mesa);
+    res.json({ mesa, ...(mesaEncontrada?.activa ? { mesaValida: true } : {}), ...(mesaEncontrada && !mesaEncontrada.activa ? { mesaInactiva: true } : {}), categorias: catalogo.cartaPublica() });
   });
 
   app.post('/api/pedidos', (req, res) => {
@@ -51,6 +54,23 @@ export function createApp(config) {
     categorias: catalogo.categoriasAdmin(),
     platos: catalogo.platosAdmin(),
     alergenos: catalogo.listarAlergenos()
+  }));
+  admin.get('/mesas', (_req, res) => res.json({ mesas: mesas.lista() }));
+  admin.post('/mesas', (req, res) => res.status(201).json(mesas.crear(req.body || {})));
+  admin.patch('/mesas/:id', (req, res) => respondFound(res, mesas.renombrar(req.params.id, req.body || {})));
+  admin.post('/mesas/:id/desactivar', (req, res) => respondFound(res, mesas.desactivar(req.params.id)));
+  admin.post('/mesas/:id/reactivar', (req, res) => respondFound(res, mesas.reactivar(req.params.id)));
+  admin.get('/mesas/:id/historial', (req, res) => {
+    const historial = mesas.historial(req.params.id);
+    return historial ? res.json({ pedidos: historial }) : res.status(404).json({ error: 'Mesa no encontrada' });
+  });
+  admin.get('/mesas/:id/qr', asyncRoute(async (req, res) => {
+    const mesa = mesas.porId(req.params.id);
+    if (!mesa) return res.status(404).json({ error: 'Mesa no encontrada' });
+    const png = await QRCode.toBuffer(mesa.url, { width: 900, margin: 2, errorCorrectionLevel: 'H' });
+    res.type('png');
+    if (req.query.descargar === '1') res.attachment(`mesa-${mesa.id}.png`);
+    return res.send(png);
   }));
   admin.post('/categorias', (req, res) => res.status(201).json(catalogo.crearCategoria(req.body)));
   admin.put('/categorias/orden', (req, res) => res.json(catalogo.reordenarCategorias(req.body.ids || [])));
@@ -70,12 +90,12 @@ export function createApp(config) {
     storage: multer.memoryStorage(),
     limits: { fileSize: MAX_IMAGE_BYTES },
     fileFilter: (_req, file, callback) => {
-      callback(IMAGE_TYPES.has(file.mimetype) ? null : new Error('SÃ³lo se aceptan imÃ¡genes JPEG, PNG o WebP'), IMAGE_TYPES.has(file.mimetype));
+      callback(IMAGE_TYPES.has(file.mimetype) ? null : new Error('SÃƒÂ³lo se aceptan imÃƒÂ¡genes JPEG, PNG o WebP'), IMAGE_TYPES.has(file.mimetype));
     }
   });
   admin.post('/platos/:id/foto', upload.single('foto'), asyncRoute(async (req, res) => {
     if (!catalogo.plato(req.params.id)) return res.status(404).json({ error: 'Plato no encontrado' });
-    if (!req.file) return res.status(400).json({ error: 'Selecciona una fotografÃ­a' });
+    if (!req.file) return res.status(400).json({ error: 'Selecciona una fotografÃƒÂ­a' });
     const filename = `plato-${req.params.id}-${Date.now()}.webp`;
     await sharp(req.file.buffer)
       .rotate()
@@ -99,13 +119,13 @@ export function createApp(config) {
       return res.status(error.status).json({ error: error.message, ...error.details });
     }
     if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
-      return res.status(413).json({ error: 'La fotografÃ­a no puede superar 5 MB' });
+      return res.status(413).json({ error: 'La fotografÃƒÂ­a no puede superar 5 MB' });
     }
     const status = /obligatorio|entero|negativo|no existe|Restaura/.test(error.message) ? 400 : 500;
     res.status(status).json({ error: error.message || 'Error inesperado' });
   });
 
-  return { app, db, catalogo, pedidos };
+  return { app, db, catalogo, pedidos, mesas };
 }
 
 function respondFound(res, value) {
