@@ -1,59 +1,62 @@
-# administracion-catalogo Specification
+﻿# administracion-catalogo Specification
 
 ## Purpose
 
-Permitir que el dueño mantenga desde su celular las categorías y los platos de la carta sin exponer la administración a clientes finales.
+Permitir que el dueÃ±o mantenga desde su celular las categorÃ­as y los platos de la carta sin exponer la administraciÃ³n a clientes finales.
 
 ## Requirements
 
 ### Requirement: Acceso protegido a la administración
-El sistema MUST exigir una sesión autenticada con la contraseña del establecimiento para acceder o modificar el catálogo. El sistema MUST impedir que una consulta pública acceda a funciones administrativas y MUST no crear cuentas ni perfiles para clientes finales.
+El sistema MUST exigir una sesión autenticada con la contraseña del establecimiento para acceder o modificar el catálogo o las mesas. El sistema MUST mostrar al dueño una navegación móvil entre las secciones Productos y Mesas, conservando la sección seleccionada. El sistema MUST impedir que una consulta pública acceda a funciones administrativas y MUST no crear cuentas ni perfiles para clientes finales.
 
 #### Scenario: Dueño autenticado administra el catálogo
 - **WHEN** el dueño inicia sesión con la contraseña válida del establecimiento
-- **THEN** el sistema le permite abrir y usar la administración del catálogo
+- **THEN** el sistema le permite abrir y usar la administración de Productos y Mesas
+
+#### Scenario: Dueño cambia de sección administrativa
+- **WHEN** el dueño elige Productos o Mesas en la navegación administrativa
+- **THEN** el sistema muestra la sección elegida sin cerrar su sesión
 
 #### Scenario: Cliente sin sesión intenta administrar
 - **WHEN** una persona sin sesión válida solicita una función administrativa
-- **THEN** el sistema rechaza el acceso y no modifica el catálogo
+- **THEN** el sistema rechaza el acceso y no modifica el catálogo ni las mesas
+### Requirement: GestiÃ³n, archivado y restauraciÃ³n de categorÃ­as
+El sistema MUST permitir al dueÃ±o crear, editar, ordenar manualmente, archivar y restaurar categorÃ­as desde una interfaz utilizable en mÃ³vil. Al archivar una categorÃ­a, MUST archivar todos sus platos y retirar la categorÃ­a y sus platos de la carta pÃºblica sin borrar sus datos ni fotografÃ­as. Al restaurar una categorÃ­a, MUST restaurar tambiÃ©n los platos archivados junto con ella.
 
-### Requirement: Gestión, archivado y restauración de categorías
-El sistema MUST permitir al dueño crear, editar, ordenar manualmente, archivar y restaurar categorías desde una interfaz utilizable en móvil. Al archivar una categoría, MUST archivar todos sus platos y retirar la categoría y sus platos de la carta pública sin borrar sus datos ni fotografías. Al restaurar una categoría, MUST restaurar también los platos archivados junto con ella.
+#### Scenario: DueÃ±o reordena categorÃ­as
+- **WHEN** el dueÃ±o cambia el orden manual de dos categorÃ­as
+- **THEN** el sistema conserva el nuevo orden y la carta pÃºblica lo refleja
 
-#### Scenario: Dueño reordena categorías
-- **WHEN** el dueño cambia el orden manual de dos categorías
-- **THEN** el sistema conserva el nuevo orden y la carta pública lo refleja
+#### Scenario: DueÃ±o archiva una categorÃ­a
+- **WHEN** el dueÃ±o archiva una categorÃ­a con platos publicados
+- **THEN** el sistema archiva la categorÃ­a y todos sus platos sin borrar sus datos ni fotografÃ­as
 
-#### Scenario: Dueño archiva una categoría
-- **WHEN** el dueño archiva una categoría con platos publicados
-- **THEN** el sistema archiva la categoría y todos sus platos sin borrar sus datos ni fotografías
+#### Scenario: DueÃ±o restaura una categorÃ­a
+- **WHEN** el dueÃ±o restaura una categorÃ­a archivada
+- **THEN** el sistema restaura la categorÃ­a y los platos archivados junto con ella para que vuelvan a poder publicarse
 
-#### Scenario: Dueño restaura una categoría
-- **WHEN** el dueño restaura una categoría archivada
-- **THEN** el sistema restaura la categoría y los platos archivados junto con ella para que vuelvan a poder publicarse
+### Requirement: GestiÃ³n, archivado y restauraciÃ³n de platos
+El sistema MUST permitir al dueÃ±o crear, editar, ordenar manualmente, archivar y restaurar platos dentro de una categorÃ­a. Un plato MUST incluir nombre, precio en pesos mexicanos con dos decimales y descripciÃ³n breve; la fotografÃ­a serÃ¡ opcional. El dueÃ±o MUST seleccionar los alÃ©rgenos aplicables del catÃ¡logo de 14 y puede no seleccionar ninguno. Al archivar un plato, el sistema MUST conservarlo junto con su fotografÃ­a; al restaurarlo, MUST recuperar su informaciÃ³n y fotografÃ­a para la carta pÃºblica.
 
-### Requirement: Gestión, archivado y restauración de platos
-El sistema MUST permitir al dueño crear, editar, ordenar manualmente, archivar y restaurar platos dentro de una categoría. Un plato MUST incluir nombre, precio en pesos mexicanos con dos decimales y descripción breve; la fotografía será opcional. El dueño MUST seleccionar los alérgenos aplicables del catálogo de 14 y puede no seleccionar ninguno. Al archivar un plato, el sistema MUST conservarlo junto con su fotografía; al restaurarlo, MUST recuperar su información y fotografía para la carta pública.
+#### Scenario: DueÃ±o crea un plato sin alÃ©rgenos declarados
+- **WHEN** el dueÃ±o guarda un plato con los campos obligatorios y sin alÃ©rgenos seleccionados
+- **THEN** el sistema lo conserva sin una declaraciÃ³n negativa de alÃ©rgenos y el plato se puede publicar en su categorÃ­a
 
-#### Scenario: Dueño crea un plato sin alérgenos declarados
-- **WHEN** el dueño guarda un plato con los campos obligatorios y sin alérgenos seleccionados
-- **THEN** el sistema lo conserva sin una declaración negativa de alérgenos y el plato se puede publicar en su categoría
+#### Scenario: DueÃ±o reordena platos de una categorÃ­a
+- **WHEN** el dueÃ±o cambia el orden manual de los platos de una categorÃ­a
+- **THEN** el sistema conserva el nuevo orden y la carta pÃºblica lo refleja
 
-#### Scenario: Dueño reordena platos de una categoría
-- **WHEN** el dueño cambia el orden manual de los platos de una categoría
-- **THEN** el sistema conserva el nuevo orden y la carta pública lo refleja
+#### Scenario: DueÃ±o archiva y restaura un plato
+- **WHEN** el dueÃ±o archiva y posteriormente restaura un plato con fotografÃ­a
+- **THEN** el sistema conserva y recupera el plato y su fotografÃ­a sin borrarlos definitivamente
 
-#### Scenario: Dueño archiva y restaura un plato
-- **WHEN** el dueño archiva y posteriormente restaura un plato con fotografía
-- **THEN** el sistema conserva y recupera el plato y su fotografía sin borrarlos definitivamente
+### Requirement: Carga controlada de fotografÃ­as
+El sistema MUST permitir al dueÃ±o asociar opcionalmente una fotografÃ­a a un plato. El sistema MUST aceptar Ãºnicamente imÃ¡genes JPEG, PNG o WebP de hasta 5 MB y MUST informar el error sin cambiar la fotografÃ­a existente cuando el archivo no cumpla estas condiciones.
 
-### Requirement: Carga controlada de fotografías
-El sistema MUST permitir al dueño asociar opcionalmente una fotografía a un plato. El sistema MUST aceptar únicamente imágenes JPEG, PNG o WebP de hasta 5 MB y MUST informar el error sin cambiar la fotografía existente cuando el archivo no cumpla estas condiciones.
+#### Scenario: DueÃ±o carga una fotografÃ­a vÃ¡lida
+- **WHEN** el dueÃ±o carga una fotografÃ­a WebP de 5 MB o menos
+- **THEN** el sistema la asocia al plato y la deja disponible para su consulta pÃºblica
 
-#### Scenario: Dueño carga una fotografía válida
-- **WHEN** el dueño carga una fotografía WebP de 5 MB o menos
-- **THEN** el sistema la asocia al plato y la deja disponible para su consulta pública
-
-#### Scenario: Dueño carga una fotografía demasiado grande
-- **WHEN** el dueño intenta cargar una imagen mayor a 5 MB
-- **THEN** el sistema rechaza el archivo, informa el límite y conserva la fotografía anterior del plato
+#### Scenario: DueÃ±o carga una fotografÃ­a demasiado grande
+- **WHEN** el dueÃ±o intenta cargar una imagen mayor a 5 MB
+- **THEN** el sistema rechaza el archivo, informa el lÃ­mite y conserva la fotografÃ­a anterior del plato
