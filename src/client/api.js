@@ -1,4 +1,4 @@
-export async function api(url, options = {}) {
+﻿export async function api(url, options = {}) {
   const response = await fetch(url, {
     credentials: 'same-origin',
     ...options,
@@ -8,6 +8,11 @@ export async function api(url, options = {}) {
   });
   if (response.status === 204) return null;
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.error || 'No fue posible completar la solicitud');
+  if (!response.ok) {
+    const error = new Error(body.error || 'No fue posible completar la solicitud');
+    error.body = body;
+    error.status = response.status;
+    throw error;
+  }
   return body;
 }

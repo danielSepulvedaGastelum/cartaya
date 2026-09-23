@@ -143,6 +143,16 @@ export function createCatalogo(db) {
     return plato(id);
   }
 
+  function marcarAgotadoTemporalmente(id) {
+    const result = db.prepare('UPDATE platos SET agotado_temporalmente = 1 WHERE id = ?').run(id);
+    return result.changes ? plato(id) : null;
+  }
+
+  function reactivarPlato(id) {
+    const result = db.prepare('UPDATE platos SET agotado_temporalmente = 0 WHERE id = ?').run(id);
+    return result.changes ? plato(id) : null;
+  }
+
   function reordenarPlatos(categoriaId, ids) {
     db.transaction(() => ids.forEach((id, index) => {
       db.prepare('UPDATE platos SET orden = ? WHERE id = ? AND categoria_id = ?')
@@ -157,26 +167,38 @@ export function createCatalogo(db) {
     return result.changes ? plato(id) : null;
   }
 
+  function platosPublicables(ids = null) {
+    const filtros = ['p.archivado = 0', 'p.agotado_temporalmente = 0', 'c.archivada = 0'];
+    const parametros = [];
+    if (ids) {
+      if (ids.length === 0) return [];
+      filtros.push(`p.id IN (${ids.map(() => '?').join(', ')})`);
+      parametros.push(...ids);
+    }
+    return db.prepare(`SELECT p.*, c.nombre AS categoria_nombre, c.orden AS categoria_orden
+      FROM platos p JOIN categorias c ON c.id = p.categoria_id
+      WHERE ${filtros.join(' AND ')} ORDER BY c.orden, c.id, p.orden, p.id`).all(...parametros);
+  }
+
   function cartaPublica() {
-    const cats = db.prepare(`SELECT c.* FROM categorias c
-      WHERE c.archivada = 0 AND EXISTS (
-        SELECT 1 FROM platos p WHERE p.categoria_id = c.id AND p.archivado = 0
-      ) ORDER BY c.orden, c.id`).all();
-    const dishStatement = db.prepare(`SELECT * FROM platos
-      WHERE categoria_id = ? AND archivado = 0 ORDER BY orden, id`);
-    return cats.map((cat) => ({
-      id: cat.id,
-      nombre: cat.nombre,
-      orden: cat.orden,
-      platos: dishStatement.all(cat.id).map((item) => ({
+    const categorias = new Map();
+    platosPublicables().forEach((item) => {
+      if (!categorias.has(item.categoria_id)) categorias.set(item.categoria_id, {
+        id: item.categoria_id,
+        nombre: item.categoria_nombre,
+        orden: item.categoria_orden,
+        platos: []
+      });
+      categorias.get(item.categoria_id).platos.push({
         id: item.id,
         nombre: item.nombre,
         descripcion: item.descripcion,
         precioCentavos: item.precio_centavos,
         fotoUrl: item.foto_url,
         alergenos: alergenosDe(item.id).map((a) => a.nombre)
-      }))
-    }));
+      });
+    });
+    return [...categorias.values()];
   }
 
   return {
@@ -192,9 +214,12 @@ export function createCatalogo(db) {
     platosAdmin,
     archivarPlato,
     restaurarPlato,
+    marcarAgotadoTemporalmente,
+    reactivarPlato,
     reordenarPlatos,
     asignarFoto,
     cartaPublica,
+    platosPublicables,
     plato
   };
 }

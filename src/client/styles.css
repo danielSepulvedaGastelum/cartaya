@@ -83,3 +83,11 @@ textarea { min-height: 100px; resize: vertical; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
 }
+.resumen-pedido { margin-top: 2rem; padding: 1.25rem; background: #fffdf8; border: 2px solid #17624f; border-radius: 16px; }
+.lineas-pedido { list-style: none; padding: 0; display: grid; gap: 1rem; }
+.lineas-pedido li { padding: 1rem; border: 1px solid #e0d5bf; border-radius: 10px; }
+.lineas-pedido h3 { margin: 0 0 0.5rem; }
+.lineas-pedido label { display: grid; gap: 0.35rem; margin-top: 0.75rem; font-weight: 700; }
+.lineas-pedido small { display: block; margin: 0.4rem 0; color: #35443e; }
+.total-pedido { font-size: 1.2rem; }
+.plato-contenido > button { width: 100%; margin-top: 0.75rem; }

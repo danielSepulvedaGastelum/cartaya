@@ -6,6 +6,7 @@ import sharp from 'sharp';
 import { createDatabase } from './database.js';
 import { createCatalogo } from './catalogo.js';
 import { createAuth } from './auth.js';
+import { createPedidos, PedidoError } from './pedidos.js';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -18,6 +19,7 @@ export function createApp(config) {
   const db = createDatabase(config.databasePath);
   const catalogo = createCatalogo(db);
   const auth = createAuth(config);
+  const pedidos = createPedidos(db, config, catalogo);
   fs.mkdirSync(config.mediaDir, { recursive: true });
 
   const app = express();
@@ -30,7 +32,17 @@ export function createApp(config) {
 
   app.get('/api/carta', (req, res) => {
     const mesa = typeof req.query.mesa === 'string' ? req.query.mesa : '';
-    res.json({ mesa, categorias: catalogo.cartaPublica() });
+    const mesaValida = Boolean(pedidos.resolverMesa(mesa));
+    res.json({ mesa, ...(mesaValida ? { mesaValida: true } : {}), categorias: catalogo.cartaPublica() });
+  });
+
+  app.post('/api/pedidos', (req, res) => {
+    const resultado = pedidos.confirmar(req.body || {});
+    if (resultado.tipo === 'confirmado') return res.status(resultado.reintento ? 200 : 201).json(resultado.pedido);
+    if (resultado.tipo === 'no_disponible') {
+      return res.status(409).json({ error: 'Algunos platos ya no est?n disponibles', ...resultado });
+    }
+    return res.status(409).json({ error: 'El precio de algunos platos cambi?', ...resultado });
   });
 
   const admin = express.Router();
@@ -50,18 +62,20 @@ export function createApp(config) {
   admin.put('/categorias/:id/platos/orden', (req, res) => res.json(catalogo.reordenarPlatos(req.params.id, req.body.ids || [])));
   admin.patch('/platos/:id', (req, res) => respondFound(res, catalogo.editarPlato(req.params.id, req.body)));
   admin.post('/platos/:id/archivar', (req, res) => respondFound(res, catalogo.archivarPlato(req.params.id)));
+  admin.post('/platos/:id/agotar', (req, res) => respondFound(res, catalogo.marcarAgotadoTemporalmente(req.params.id)));
+  admin.post('/platos/:id/reactivar', (req, res) => respondFound(res, catalogo.reactivarPlato(req.params.id)));
   admin.post('/platos/:id/restaurar', (req, res) => respondFound(res, catalogo.restaurarPlato(req.params.id)));
 
   const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: MAX_IMAGE_BYTES },
     fileFilter: (_req, file, callback) => {
-      callback(IMAGE_TYPES.has(file.mimetype) ? null : new Error('Sólo se aceptan imágenes JPEG, PNG o WebP'), IMAGE_TYPES.has(file.mimetype));
+      callback(IMAGE_TYPES.has(file.mimetype) ? null : new Error('SÃ³lo se aceptan imÃ¡genes JPEG, PNG o WebP'), IMAGE_TYPES.has(file.mimetype));
     }
   });
   admin.post('/platos/:id/foto', upload.single('foto'), asyncRoute(async (req, res) => {
     if (!catalogo.plato(req.params.id)) return res.status(404).json({ error: 'Plato no encontrado' });
-    if (!req.file) return res.status(400).json({ error: 'Selecciona una fotografía' });
+    if (!req.file) return res.status(400).json({ error: 'Selecciona una fotografÃ­a' });
     const filename = `plato-${req.params.id}-${Date.now()}.webp`;
     await sharp(req.file.buffer)
       .rotate()
@@ -81,14 +95,17 @@ export function createApp(config) {
   });
 
   app.use((error, _req, res, _next) => {
+    if (error instanceof PedidoError) {
+      return res.status(error.status).json({ error: error.message, ...error.details });
+    }
     if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
-      return res.status(413).json({ error: 'La fotografía no puede superar 5 MB' });
+      return res.status(413).json({ error: 'La fotografÃ­a no puede superar 5 MB' });
     }
     const status = /obligatorio|entero|negativo|no existe|Restaura/.test(error.message) ? 400 : 500;
     res.status(status).json({ error: error.message || 'Error inesperado' });
   });
 
-  return { app, db, catalogo };
+  return { app, db, catalogo, pedidos };
 }
 
 function respondFound(res, value) {

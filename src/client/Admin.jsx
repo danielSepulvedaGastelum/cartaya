@@ -155,6 +155,7 @@ export function Admin() {
                 <button onClick={() => editDish(plato)}>Editar</button>
                 {!plato.archivado && index > 0 ? <button onClick={() => reorderDishes(catalogo, plato, index, action)}>Subir</button> : null}
                 <label className="boton-archivo">Foto<input aria-label={`Fotografía de ${plato.nombre}`} type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => uploadPhoto(plato.id, event.target.files[0])} /></label>
+                {!plato.archivado ? (plato.agotado_temporalmente ? <button onClick={() => action(`/api/admin/platos/${plato.id}/reactivar`)}>Disponible</button> : <button onClick={() => action(`/api/admin/platos/${plato.id}/agotar`)}>Agotado</button>) : null}
                 {!plato.archivado ? <button onClick={() => action(`/api/admin/platos/${plato.id}/archivar`)}>Archivar</button> : <button onClick={() => action(`/api/admin/platos/${plato.id}/restaurar`)}>Restaurar</button>}
               </div>
             </li>

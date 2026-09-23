@@ -40,6 +40,7 @@ export function createDatabase(filename = ':memory:') {
       orden INTEGER NOT NULL DEFAULT 0,
       archivado INTEGER NOT NULL DEFAULT 0 CHECK(archivado IN (0, 1)),
       archivado_por_categoria INTEGER NOT NULL DEFAULT 0 CHECK(archivado_por_categoria IN (0, 1)),
+      agotado_temporalmente INTEGER NOT NULL DEFAULT 0 CHECK(agotado_temporalmente IN (0, 1)),
       foto_url TEXT,
       foto_mime TEXT
     );
@@ -53,8 +54,35 @@ export function createDatabase(filename = ':memory:') {
       PRIMARY KEY (plato_id, alergeno_id)
     );
     CREATE INDEX IF NOT EXISTS idx_categorias_publicas ON categorias(archivada, orden);
-    CREATE INDEX IF NOT EXISTS idx_platos_publicos ON platos(categoria_id, archivado, orden);
+    CREATE INDEX IF NOT EXISTS idx_platos_publicos ON platos(categoria_id, archivado, agotado_temporalmente, orden);
+    CREATE TABLE IF NOT EXISTS pedidos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      mesa TEXT NOT NULL,
+      estado TEXT NOT NULL DEFAULT 'recibido' CHECK(estado = 'recibido'),
+      total_centavos INTEGER NOT NULL CHECK(total_centavos >= 0),
+      clave_idempotencia TEXT NOT NULL,
+      solicitud_hash TEXT NOT NULL,
+      creado_en TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(mesa, clave_idempotencia)
+    );
+    CREATE TABLE IF NOT EXISTS pedido_lineas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      pedido_id INTEGER NOT NULL REFERENCES pedidos(id) ON DELETE CASCADE,
+      plato_id INTEGER NOT NULL REFERENCES platos(id),
+      nombre_plato TEXT NOT NULL,
+      cantidad INTEGER NOT NULL CHECK(cantidad BETWEEN 1 AND 20),
+      nota TEXT CHECK(nota IS NULL OR length(nota) <= 140),
+      precio_unitario_centavos INTEGER NOT NULL CHECK(precio_unitario_centavos >= 0),
+      subtotal_centavos INTEGER NOT NULL CHECK(subtotal_centavos = cantidad * precio_unitario_centavos)
+    );
+    CREATE INDEX IF NOT EXISTS idx_pedidos_mesa_creado ON pedidos(mesa, creado_en, id);
+    CREATE INDEX IF NOT EXISTS idx_pedido_lineas_pedido ON pedido_lineas(pedido_id, id);
   `);
+
+  const columnasPlatos = db.prepare('PRAGMA table_info(platos)').all().map((column) => column.name);
+  if (!columnasPlatos.includes('agotado_temporalmente')) {
+    db.exec('ALTER TABLE platos ADD COLUMN agotado_temporalmente INTEGER NOT NULL DEFAULT 0 CHECK(agotado_temporalmente IN (0, 1))');
+  }
 
   const insertar = db.prepare('INSERT OR IGNORE INTO alergenos (nombre) VALUES (?)');
   db.transaction(() => ALERGENOS.forEach((nombre) => insertar.run(nombre)))();
