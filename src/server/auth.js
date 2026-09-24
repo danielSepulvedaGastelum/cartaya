@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { jornadaLocal } from './jornada.js';
 
 function seguraIgual(a, b) {
   const first = Buffer.from(String(a));
@@ -8,7 +9,6 @@ function seguraIgual(a, b) {
 
 export function createAuth(config) {
   const sessions = new Map();
-  const maxAge = 8 * 60 * 60 * 1000;
 
   function parseCookies(header = '') {
     return Object.fromEntries(header.split(';').filter(Boolean).map((item) => {
@@ -22,15 +22,16 @@ export function createAuth(config) {
       return res.status(401).json({ error: 'Contraseña incorrecta' });
     }
     const token = crypto.randomBytes(32).toString('base64url');
-    sessions.set(token, Date.now() + maxAge);
+    const expires = jornadaLocal().fin.getTime();
+    sessions.set(token, expires);
     res.cookie('cartaya_sesion', token, {
       httpOnly: true,
       sameSite: 'lax',
       secure: config.production,
-      maxAge,
+      expires: new Date(expires),
       path: '/'
     });
-    return res.json({ autenticado: true });
+    return res.json({ autenticado: true, sesionExpiraEn: new Date(expires).toISOString() });
   }
 
   function logout(req, res) {
@@ -43,10 +44,11 @@ export function createAuth(config) {
   function requireAdmin(req, res, next) {
     const token = parseCookies(req.headers.cookie).cartaya_sesion;
     const expires = token && sessions.get(token);
-    if (!expires || expires < Date.now()) {
+    if (!expires || expires <= Date.now()) {
       if (token) sessions.delete(token);
       return res.status(401).json({ error: 'Se requiere iniciar sesión' });
     }
+    req.sesionExpiraEn = expires;
     next();
   }
 

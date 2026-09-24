@@ -101,3 +101,26 @@ textarea { min-height: 100px; resize: vertical; }
 .selector-cantidad { display: inline-flex; align-items: center; gap: .7rem; margin-top: .75rem; }
 .selector-cantidad button { min-width: 48px; min-height: 48px; padding: .4rem; }
 .panel-indicacion { position: sticky; bottom: 1rem; z-index: 2; box-shadow: 0 4px 18px #0003; }
+
+.cocina { padding: 1rem; font-size: 18px; color: #17211e; }
+.cocina-cabecera { position: sticky; top: 0; z-index: 1; background: #f7f2e8; padding: .5rem 0 1rem; }
+.cocina-cabecera h1 { display: inline-block; margin: 0 1.5rem .5rem 0; }
+.cocina nav { display: flex; flex-wrap: wrap; gap: .5rem; }
+.cocina nav a { display: inline-flex; align-items: center; min-height: 48px; padding: .65rem 1rem; border-radius: 10px; background: #153e36; color: white; font-weight: 700; text-decoration: none; }
+.cocina-columnas { display: grid; grid-template-columns: repeat(4, minmax(290px, 1fr)); gap: 1rem; overflow-x: auto; align-items: start; padding-bottom: 1rem; }
+.cocina-columna { scroll-margin-top: 12rem; min-width: 0; }
+.cocina-columna h2 { font-size: 1.35rem; border-bottom: 3px solid #17624f; padding-bottom: .5rem; }
+.cocina-pedido { margin: 0 0 1rem; padding: 1rem; background: #fffdf8; border: 2px solid #8f9a96; border-radius: 12px; overflow-wrap: anywhere; }
+.cocina-pedido h3 { font-size: 1.15rem; margin: 0; }
+.cocina-pedido ul { padding-left: 1.4rem; }
+.cocina-pedido li { margin-bottom: .7rem; }
+.cocina-nota { margin: .3rem 0; background: #fff3cb; color: #493400; padding: .4rem; }
+.cocina-tiempo { font-weight: 750; }
+.cocina-horas { font-size: 1rem; }
+.cocina-acciones { display: grid; gap: .65rem; margin-top: 1rem; }
+.cocina button { min-height: 48px; }
+.cocina-cancelar { background: #842c27; }
+.cocina-cancelar:hover, .cocina-cancelar:focus-visible { background: #62201d; }
+.cocina button:disabled { opacity: .6; cursor: wait; }
+.cocina-aviso { background: #fff3cb; color: #493400; border: 2px solid #7a5400; padding: 1rem; }
+@media (max-width: 640px) { .cocina-columnas { grid-template-columns: repeat(4, minmax(270px, 85vw)); } }

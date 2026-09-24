@@ -58,11 +58,14 @@ export function createDatabase(filename = ':memory:') {
     CREATE TABLE IF NOT EXISTS pedidos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       mesa TEXT NOT NULL,
-      estado TEXT NOT NULL DEFAULT 'recibido' CHECK(estado = 'recibido'),
+      estado TEXT NOT NULL DEFAULT 'recibido' CHECK(estado IN ('recibido', 'en_preparacion', 'servido')),
       total_centavos INTEGER NOT NULL CHECK(total_centavos >= 0),
       clave_idempotencia TEXT NOT NULL,
       solicitud_hash TEXT NOT NULL,
       creado_en TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      en_preparacion_en TEXT,
+      servido_en TEXT,
+      cancelado_en TEXT,
       UNIQUE(mesa, clave_idempotencia)
     );
     CREATE TABLE IF NOT EXISTS pedido_lineas (
@@ -79,6 +82,7 @@ export function createDatabase(filename = ':memory:') {
     CREATE INDEX IF NOT EXISTS idx_pedido_lineas_pedido ON pedido_lineas(pedido_id, id);
   `);
 
+  migrarPedidos(db);
   const columnasPlatos = db.prepare('PRAGMA table_info(platos)').all().map((column) => column.name);
   if (!columnasPlatos.includes('agotado_temporalmente')) {
     db.exec('ALTER TABLE platos ADD COLUMN agotado_temporalmente INTEGER NOT NULL DEFAULT 0 CHECK(agotado_temporalmente IN (0, 1))');
@@ -87,4 +91,43 @@ export function createDatabase(filename = ':memory:') {
   const insertar = db.prepare('INSERT OR IGNORE INTO alergenos (nombre) VALUES (?)');
   db.transaction(() => ALERGENOS.forEach((nombre) => insertar.run(nombre)))();
   return db;
+}
+
+function migrarPedidos(db) {
+  const columnas = db.prepare('PRAGMA table_info(pedidos)').all().map((column) => column.name);
+  if (columnas.includes('cancelado_en')) return;
+  const indices = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'index' AND tbl_name = 'pedidos' AND sql IS NOT NULL").all();
+  const secuencia = db.prepare("SELECT seq FROM sqlite_sequence WHERE name = 'pedidos'").get()?.seq;
+  const conteos = () => [
+    db.prepare('SELECT count(*) AS n FROM pedidos').get().n,
+    db.prepare('SELECT count(*) AS n FROM pedido_lineas').get().n
+  ];
+  db.pragma('foreign_keys = OFF');
+  try {
+    db.transaction(() => {
+      const antes = conteos();
+      db.exec(`CREATE TABLE pedidos_migracion (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        mesa TEXT NOT NULL,
+        ${columnas.includes('mesa_id') ? 'mesa_id INTEGER REFERENCES mesas(id),' : ''}
+        estado TEXT NOT NULL DEFAULT 'recibido' CHECK(estado IN ('recibido', 'en_preparacion', 'servido')),
+        total_centavos INTEGER NOT NULL CHECK(total_centavos >= 0),
+        clave_idempotencia TEXT NOT NULL,
+        solicitud_hash TEXT NOT NULL,
+        creado_en TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        en_preparacion_en TEXT, servido_en TEXT, cancelado_en TEXT,
+        UNIQUE(mesa, clave_idempotencia)
+      );
+      INSERT INTO pedidos_migracion (${columnas.join(', ')}) SELECT ${columnas.join(', ')} FROM pedidos;
+      DROP TABLE pedidos;
+      ALTER TABLE pedidos_migracion RENAME TO pedidos;`);
+      indices.forEach(({ sql }) => db.exec(sql));
+      if (secuencia !== undefined) db.prepare("UPDATE sqlite_sequence SET seq = ? WHERE name = 'pedidos'").run(secuencia);
+      if (conteos().some((n, i) => n !== antes[i]) || db.pragma('foreign_key_check').length) {
+        throw new Error('La migración de pedidos no conserva la integridad de los datos');
+      }
+    })();
+  } finally {
+    db.pragma('foreign_keys = ON');
+  }
 }

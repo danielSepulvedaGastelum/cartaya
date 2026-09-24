@@ -1,4 +1,5 @@
 ﻿import crypto from 'node:crypto';
+import { fechaSql, jornadaLocal } from './jornada.js';
 
 export class PedidoError extends Error {
   constructor(message, status = 400, details = {}) {
@@ -26,11 +27,14 @@ function solicitudHash(lineas) {
 }
 
 function serializarPedido(db, pedidoId) {
-  const pedido = db.prepare('SELECT id, mesa, estado, total_centavos FROM pedidos WHERE id = ?').get(pedidoId);
+  const pedido = db.prepare('SELECT * FROM pedidos WHERE id = ?').get(pedidoId);
+  const iso = (value) => value ? value.replace(' ', 'T') + 'Z' : null;
   const lineas = db.prepare(`SELECT id, plato_id, nombre_plato, cantidad, nota,
     precio_unitario_centavos, subtotal_centavos FROM pedido_lineas WHERE pedido_id = ? ORDER BY id`).all(pedidoId);
   return {
     numero: pedido.id, mesa: pedido.mesa, estado: pedido.estado, totalCentavos: pedido.total_centavos,
+    creadoEn: iso(pedido.creado_en), enPreparacionEn: iso(pedido.en_preparacion_en),
+    servidoEn: iso(pedido.servido_en), canceladoEn: iso(pedido.cancelado_en),
     lineas: lineas.map((linea) => ({
       id: linea.id, platoId: linea.plato_id, nombre: linea.nombre_plato, cantidad: linea.cantidad, nota: linea.nota,
       precioUnitarioCentavos: linea.precio_unitario_centavos, subtotalCentavos: linea.subtotal_centavos
@@ -39,6 +43,56 @@ function serializarPedido(db, pedidoId) {
 }
 
 export function createPedidos(db, mesas, catalogo) {
+  const suscriptores = new Set();
+
+  function instantanea(ahora = new Date()) {
+    const { inicio, fin } = jornadaLocal(ahora);
+    const activos = db.prepare(`SELECT id, estado FROM pedidos WHERE cancelado_en IS NULL
+      AND estado IN ('recibido', 'en_preparacion') ORDER BY creado_en, id`).all();
+    const terminados = db.prepare(`SELECT id, cancelado_en FROM pedidos
+      WHERE (servido_en >= ? AND servido_en < ?) OR (cancelado_en >= ? AND cancelado_en < ?)
+      ORDER BY COALESCE(cancelado_en, servido_en) DESC, id DESC`)
+      .all(fechaSql(inicio), fechaSql(fin), fechaSql(inicio), fechaSql(fin));
+    const serializar = ({ id }) => serializarPedido(db, id);
+    return {
+      recibidos: activos.filter((p) => p.estado === 'recibido').map(serializar),
+      enPreparacion: activos.filter((p) => p.estado === 'en_preparacion').map(serializar),
+      servidos: terminados.filter((p) => !p.cancelado_en).map(serializar),
+      cancelados: terminados.filter((p) => p.cancelado_en).map(serializar)
+    };
+  }
+
+  function publicar(tipo, numero) {
+    if (!suscriptores.size) return;
+    const evento = { tipo, numero, ...instantanea() };
+    for (const suscriptor of suscriptores) {
+      // Una desconexión no puede convertir una escritura confirmada en error.
+      try { suscriptor(evento); } catch { suscriptores.delete(suscriptor); }
+    }
+  }
+
+  function suscribir(suscriptor) {
+    suscriptores.add(suscriptor);
+    return () => suscriptores.delete(suscriptor);
+  }
+
+  function cambiar(numero, accion) {
+    const acciones = {
+      iniciar: ["estado = 'en_preparacion', en_preparacion_en = CURRENT_TIMESTAMP", 'recibido'],
+      servir: ["estado = 'servido', servido_en = CURRENT_TIMESTAMP", 'en_preparacion'],
+      cancelar: ['cancelado_en = CURRENT_TIMESTAMP', 'recibido']
+    };
+    const [asignacion, origen] = acciones[accion];
+    const result = db.prepare(`UPDATE pedidos SET ${asignacion}
+      WHERE id = ? AND estado = ? AND cancelado_en IS NULL`).run(numero, origen);
+    if (!result.changes) {
+      if (!db.prepare('SELECT id FROM pedidos WHERE id = ?').get(numero)) throw new PedidoError('Pedido no encontrado', 404);
+      throw new PedidoError(accion === 'cancelar' ? 'El pedido ya no puede cancelarse' : 'La transición no es válida para el estado actual', 409);
+    }
+    publicar('pedidos_actualizados', Number(numero));
+    return serializarPedido(db, numero);
+  }
+
   function resolverMesa(token) {
     const mesa = mesas.porToken(token);
     return mesa && mesa.activa ? mesa : null;
@@ -92,7 +146,7 @@ export function createPedidos(db, mesas, catalogo) {
     return { noDisponibles, actuales };
   }
 
-  const confirmar = db.transaction((input) => {
+  const confirmarTransaccion = db.transaction((input) => {
     const pedido = normalizar(input);
     const hash = solicitudHash(pedido.lineas);
     const existente = db.prepare('SELECT id, solicitud_hash FROM pedidos WHERE mesa = ? AND clave_idempotencia = ?')
@@ -122,5 +176,13 @@ export function createPedidos(db, mesas, catalogo) {
     return { tipo: 'confirmado', pedido: serializarPedido(db, result.lastInsertRowid), reintento: false };
   });
 
-  return { resolverMesa, confirmar };
+  function confirmar(input) {
+    const resultado = confirmarTransaccion(input);
+    if (resultado.tipo === 'confirmado' && !resultado.reintento) publicar('pedido_nuevo', resultado.pedido.numero);
+    return resultado;
+  }
+
+  return { resolverMesa, confirmar, instantanea, suscribir,
+    iniciar: (numero) => cambiar(numero, 'iniciar'), servir: (numero) => cambiar(numero, 'servir'),
+    cancelar: (numero) => cambiar(numero, 'cancelar') };
 }

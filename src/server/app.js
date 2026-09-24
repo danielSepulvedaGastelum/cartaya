@@ -9,6 +9,7 @@ import { createCatalogo } from './catalogo.js';
 import { createAuth } from './auth.js';
 import { createPedidos, PedidoError } from './pedidos.js';
 import { createMesas } from './mesas.js';
+import { createCocina } from './cocina.js';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -47,6 +48,8 @@ export function createApp(config) {
     }
     return res.status(409).json({ error: 'El precio de algunos platos cambi?', ...resultado });
   });
+
+  app.use('/api/cocina', createCocina(auth, pedidos));
 
   const admin = express.Router();
   admin.use(auth.requireAdmin);
