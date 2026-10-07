@@ -11,6 +11,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     setupFiles: ['./tests/setup.js'],
+    exclude: ['tests/browser/**', '**/node_modules/**'],
     coverage: { reporter: ['text', 'html'] }
   }
 });

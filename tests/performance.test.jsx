@@ -1,13 +1,13 @@
-﻿// @vitest-environment jsdom
+// @vitest-environment jsdom
 import React from 'react';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CartaPublica } from '../src/client/CartaPublica.jsx';
 
-describe('Presupuesto mÃ³vil de rendimiento', () => {
+describe('Carga progresiva funcional en jsdom', () => {
   afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
-  it('Consulta mÃ³vil con condiciones objetivo: texto Ãºtil en menos de dos segundos y foto diferida sin solicitar', async () => {
+  it('La carta muestra texto tras la API simulada y mantiene foto fuera de vista sin img', async () => {
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
     Object.defineProperty(navigator, 'connection', { configurable: true, value: { effectiveType: '4g', downlink: 4, rtt: 150 } });
     let observe;
@@ -23,18 +23,16 @@ describe('Presupuesto mÃ³vil de rendimiento', () => {
         status: 200,
         json: async () => ({
           mesa: 'mesa-rendimiento',
-          categorias: [{ id: 1, nombre: 'CafÃ©', platos: [
-            { id: 1, nombre: 'Americano', descripcion: 'CafÃ© de la casa', precioCentavos: 4500, fotoUrl: null, alergenos: [] },
+          categorias: [{ id: 1, nombre: 'Café', platos: [
+            { id: 1, nombre: 'Americano', descripcion: 'Café de la casa', precioCentavos: 4500, fotoUrl: null, alergenos: [] },
             { id: 2, nombre: 'Capuchino', descripcion: 'Espuma de leche', precioCentavos: 6000, fotoUrl: '/media/capuchino.webp', alergenos: ['Leche'] }
           ] }]
         })
       };
     });
-    const started = performance.now();
     render(<CartaPublica />);
     await screen.findByText('Americano', {}, { timeout: 1900 });
-    expect(performance.now() - started).toBeLessThan(2000);
     expect(screen.getByText('Capuchino')).toBeInTheDocument();
-    expect(screen.queryByAltText('FotografÃ­a de Capuchino')).not.toBeInTheDocument();
+    expect(screen.queryByAltText('Fotografía de Capuchino')).not.toBeInTheDocument();
   });
 });

@@ -1,4 +1,4 @@
-﻿import crypto from 'node:crypto';
+import crypto from 'node:crypto';
 import { fechaSql, jornadaLocal } from './jornada.js';
 
 export class PedidoError extends Error {
@@ -100,18 +100,16 @@ export function createPedidos(db, mesas, catalogo) {
 
   function normalizar({ mesa, claveIdempotencia, lineas }) {
     const mesaRegistrada = mesas.porToken(mesa);
-    if (mesaRegistrada && !mesaRegistrada.activa) throw new PedidoError('Esta mesa no acepta pedidos');
-    const mesaResuelta = resolverMesa(mesa);
-    if (!mesaResuelta) throw new PedidoError('La mesa no es valida');
+    if (!mesaRegistrada) throw new PedidoError('La mesa no es válida');
     if (typeof claveIdempotencia !== 'string' || !claveIdempotencia.trim() || claveIdempotencia.length > 128) {
       throw new PedidoError('La clave de idempotencia es obligatoria y debe tener hasta 128 caracteres');
     }
     if (!Array.isArray(lineas) || lineas.length === 0) throw new PedidoError('Agrega al menos un plato antes de confirmar');
     const lineaIds = new Set();
     const normalizadas = lineas.map((linea, index) => {
-      if (!linea || typeof linea !== 'object') throw new PedidoError('Cada l?nea debe ser v?lida');
+      if (!linea || typeof linea !== 'object') throw new PedidoError('Cada línea debe ser válida');
       const lineaId = typeof linea.lineaId === 'string' && linea.lineaId ? linea.lineaId : String(index);
-      if (lineaIds.has(lineaId)) throw new PedidoError('Cada l?nea debe tener un identificador distinto');
+      if (lineaIds.has(lineaId)) throw new PedidoError('Cada línea debe tener un identificador distinto');
       lineaIds.add(lineaId);
       const platoId = entero(linea.platoId, 'El plato');
       const cantidad = entero(linea.cantidad, 'La cantidad');
@@ -120,7 +118,7 @@ export function createPedidos(db, mesas, catalogo) {
       if (precioCentavos < 0) throw new PedidoError('El precio no puede ser negativo');
       return { lineaId, platoId, cantidad, nota: notaValida(linea.nota), precioCentavos };
     });
-    return { mesa: mesaResuelta, claveIdempotencia: claveIdempotencia.trim(), lineas: normalizadas };
+    return { mesa: mesaRegistrada, claveIdempotencia: claveIdempotencia.trim(), lineas: normalizadas };
   }
 
   function evaluarLineas(lineas) {
@@ -149,12 +147,14 @@ export function createPedidos(db, mesas, catalogo) {
   const confirmarTransaccion = db.transaction((input) => {
     const pedido = normalizar(input);
     const hash = solicitudHash(pedido.lineas);
-    const existente = db.prepare('SELECT id, solicitud_hash FROM pedidos WHERE mesa = ? AND clave_idempotencia = ?')
-      .get(pedido.mesa.nombre, pedido.claveIdempotencia);
+    const existente = db.prepare('SELECT id, solicitud_hash FROM pedidos WHERE mesa_id = ? AND clave_idempotencia = ?')
+      .get(pedido.mesa.id, pedido.claveIdempotencia);
     if (existente) {
-      if (existente.solicitud_hash !== hash) throw new PedidoError('La clave de idempotencia ya se us? con otro pedido', 409);
+      if (existente.solicitud_hash !== hash) throw new PedidoError('La clave de idempotencia ya se usó con otro pedido', 409);
       return { tipo: 'confirmado', pedido: serializarPedido(db, existente.id), reintento: true };
     }
+
+    if (!pedido.mesa.activa) throw new PedidoError('Esta mesa no acepta pedidos');
 
     const evaluacion = evaluarLineas(pedido.lineas);
     const lineas = evaluacion.actuales.map((linea) => ({
@@ -162,8 +162,8 @@ export function createPedidos(db, mesas, catalogo) {
       nota: linea.nota, precioCentavos: linea.precioCentavosVigente, subtotalCentavos: linea.subtotalCentavos
     }));
     const totalCentavos = lineas.reduce((total, linea) => total + linea.subtotalCentavos, 0);
-    if (evaluacion.noDisponibles.length) return { tipo: 'no_disponible', noDisponibles: evaluacion.noDisponibles, lineas, totalCentavos };
     const preciosModificados = lineas.filter((linea) => pedido.lineas.find((original) => original.lineaId === linea.lineaId).precioCentavos !== linea.precioCentavos);
+    if (evaluacion.noDisponibles.length) return { tipo: 'no_disponible', noDisponibles: evaluacion.noDisponibles, preciosModificados, lineas, totalCentavos };
     if (preciosModificados.length) return { tipo: 'precio_modificado', preciosModificados, lineas, totalCentavos };
 
     const result = db.prepare(`INSERT INTO pedidos (mesa, mesa_id, total_centavos, clave_idempotencia, solicitud_hash)

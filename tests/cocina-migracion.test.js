@@ -1,9 +1,12 @@
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import { expect, it } from 'vitest';
 import { createDatabase } from '../src/server/database.js';
+import { createApp } from '../src/server/app.js';
+import { mesaToken } from '../src/server/generate-qr.js';
 
 it('Migra un archivo SQLite previo conservando pedidos, mesas, líneas, índices y secuencia', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cartaya-migracion-'));
@@ -40,4 +43,27 @@ it('Migra un archivo SQLite previo conservando pedidos, mesas, líneas, índices
     expect(db.prepare("INSERT INTO pedidos (mesa, total_centavos, clave_idempotencia, solicitud_hash) VALUES ('Mesa siete', 0, 'otra', 'hash')").run().lastInsertRowid).toBe(100);
     db.close(); db = createDatabase(archivo); expect(db.prepare('SELECT count(*) AS n FROM pedidos').get().n).toBe(2);
   } finally { if (db?.open) db.close(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+
+it('una actualizacion desde unicidad por nombre conserva el reintento historico', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cartaya-identidad-'));
+  const archivo = path.join(dir, 'anterior.sqlite'); let db, app;
+  const secret = 'secreto-de-pruebas-largo';
+  const lineas = [{ lineaId: 'a', platoId: 1, cantidad: 1, nota: null, precioCentavos: 4500 }];
+  const hash = crypto.createHash('sha256').update(JSON.stringify(lineas)).digest('hex');
+  try {
+    db = createDatabase(archivo);
+    db.prepare('INSERT INTO categorias (id, nombre) VALUES (1, ?)').run('Comida');
+    db.prepare('INSERT INTO platos (id, categoria_id, nombre, descripcion, precio_centavos) VALUES (1, 1, ?, ?, 4500)').run('Torta', 'Pan');
+    db.prepare('INSERT INTO pedidos (id, mesa, total_centavos, clave_idempotencia, solicitud_hash) VALUES (42, ?, 4500, ?, ?)').run('uno', 'intento', hash);
+    db.prepare('INSERT INTO pedido_lineas (pedido_id, plato_id, nombre_plato, cantidad, nota, precio_unitario_centavos, subtotal_centavos) VALUES (42, 1, ?, 1, NULL, 4500, 4500)').run('Torta');
+    db.close(); db = null;
+    app = createApp({ databasePath: archivo, mediaDir: path.join(dir, 'media'), password: 'clave',
+      sessionSecret: secret, publicBaseUrl: 'http://localhost', mesas: ['uno'], production: false });
+    const result = app.pedidos.confirmar({ mesa: mesaToken('uno', secret), claveIdempotencia: 'intento', lineas });
+    expect(result).toMatchObject({ reintento: true, pedido: { numero: 42, totalCentavos: 4500 } });
+    expect(app.db.prepare('SELECT count(*) AS n FROM pedidos').get().n).toBe(1);
+    expect(app.db.prepare('SELECT count(*) AS n FROM pedido_lineas').get().n).toBe(1);
+  } finally { if (db?.open) db.close(); if (app?.db.open) app.db.close(); fs.rmSync(dir, { recursive: true, force: true }); }
 });

@@ -12,6 +12,8 @@
     "start": "node src/server/index.js",
     "test": "npm run build && vitest run",
     "test:watch": "vitest",
+    "test:browser": "npm run build && playwright test tests/browser/pedidos.pw.js",
+    "test:performance": "npm run build && playwright test tests/browser/rendimiento.pw.js",
     "qr": "node src/server/generate-qr.js"
   },
   "dependencies": {
@@ -24,6 +26,7 @@
     "sharp": "^0.34.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@testing-library/jest-dom": "^6.8.0",
     "@testing-library/react": "^16.3.0",
     "@vitejs/plugin-react": "^5.0.2",

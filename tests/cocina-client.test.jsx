@@ -193,5 +193,11 @@ describe('Panel de cocina', () => {
     await screen.findByLabelText('Contraseña'); expect(streams[0].close).toHaveBeenCalled();
     cleanup(); streams = []; await abrir(); fetchMock.mockResolvedValue(respuesta({ error: 'Sesión vencida' }, 401));
     streams[0].error(); await screen.findByLabelText('Contraseña'); expect(streams[0].close).toHaveBeenCalled();
+    expect(screen.queryByRole('heading', { name: /Pedido #1/ })).not.toBeInTheDocument();
+    fetchMock.mockResolvedValueOnce(respuesta({ autenticado: true })).mockResolvedValueOnce(respuesta(snapshot({ recibidos: [pedido(7)] })));
+    fireEvent.change(screen.getByLabelText('Contraseña'), { target: { value: 'clave' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Entrar' }));
+    await screen.findByRole('heading', { name: /Pedido #7/ });
+    expect(streams).toHaveLength(2);
   });
 });

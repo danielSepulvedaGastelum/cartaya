@@ -1,4 +1,4 @@
-﻿import fs from 'node:fs';
+import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
 import multer from 'multer';
@@ -44,9 +44,9 @@ export function createApp(config) {
     const resultado = pedidos.confirmar(req.body || {});
     if (resultado.tipo === 'confirmado') return res.status(resultado.reintento ? 200 : 201).json(resultado.pedido);
     if (resultado.tipo === 'no_disponible') {
-      return res.status(409).json({ error: 'Algunos platos ya no est?n disponibles', ...resultado });
+      return res.status(409).json({ error: 'Algunos platos ya no están disponibles', ...resultado });
     }
-    return res.status(409).json({ error: 'El precio de algunos platos cambi?', ...resultado });
+    return res.status(409).json({ error: 'El precio de algunos platos cambió', ...resultado });
   });
 
   app.use('/api/cocina', createCocina(auth, pedidos));
@@ -93,12 +93,12 @@ export function createApp(config) {
     storage: multer.memoryStorage(),
     limits: { fileSize: MAX_IMAGE_BYTES },
     fileFilter: (_req, file, callback) => {
-      callback(IMAGE_TYPES.has(file.mimetype) ? null : new Error('SÃƒÂ³lo se aceptan imÃƒÂ¡genes JPEG, PNG o WebP'), IMAGE_TYPES.has(file.mimetype));
+      callback(IMAGE_TYPES.has(file.mimetype) ? null : new Error('Sólo se aceptan imágenes JPEG, PNG o WebP'), IMAGE_TYPES.has(file.mimetype));
     }
   });
   admin.post('/platos/:id/foto', upload.single('foto'), asyncRoute(async (req, res) => {
     if (!catalogo.plato(req.params.id)) return res.status(404).json({ error: 'Plato no encontrado' });
-    if (!req.file) return res.status(400).json({ error: 'Selecciona una fotografÃƒÂ­a' });
+    if (!req.file) return res.status(400).json({ error: 'Selecciona una fotografía' });
     const filename = `plato-${req.params.id}-${Date.now()}.webp`;
     await sharp(req.file.buffer)
       .rotate()
@@ -122,9 +122,9 @@ export function createApp(config) {
       return res.status(error.status).json({ error: error.message, ...error.details });
     }
     if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
-      return res.status(413).json({ error: 'La fotografÃƒÂ­a no puede superar 5 MB' });
+      return res.status(413).json({ error: 'La fotografía no puede superar 5 MB' });
     }
-    const status = /obligatorio|entero|negativo|no existe|Restaura/.test(error.message) ? 400 : 500;
+    const status = /obligatorio|entero|negativo|no existe|Restaura|se aceptan im/.test(error.message) ? 400 : 500;
     res.status(status).json({ error: error.message || 'Error inesperado' });
   });
 

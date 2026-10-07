@@ -91,18 +91,18 @@ export function Admin() {
 
   function restoreCategory(categoria) {
     const count = catalogo.platos.filter((item) => item.categoria_id === categoria.id && item.archivado_por_categoria).length;
-    if (globalThis.confirm(`Se restaurarÃ¡n ${count} plato(s) junto con esta categorÃ­a. Â¿Continuar?`)) {
+    if (globalThis.confirm(`Se restaurarán ${count} plato(s) junto con esta categoría. ¿Continuar?`)) {
       action(`/api/admin/categorias/${categoria.id}/restaurar`);
     }
   }
 
   if (!catalogo) return (
     <main className="admin estrecho">
-      <h1>AdministraciÃ³n</h1>
+      <h1>Administración</h1>
       <form onSubmit={entrar} className="panel">
-        <label htmlFor="password">ContraseÃ±a del establecimiento</label>
+        <label htmlFor="password">Contraseña del establecimiento</label>
         <input id="password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required />
-        <button type="submit">Iniciar sesiÃ³n</button>
+        <button type="submit">Iniciar sesión</button>
         {message ? <p role="alert">{message}</p> : null}
       </form>
     </main>
@@ -112,7 +112,7 @@ export function Admin() {
   return (
     <main className={`admin ${seccion === 'mesas' ? 'viendo-mesas' : 'viendo-productos'}`}>
       <div className="admin-header">
-        <div><p className="ceja">La EstaciÃ³n</p><h1>Administrar carta</h1></div>
+        <div><p className="ceja">La Estación</p><h1>Administrar carta</h1></div>
         <a className="boton-secundario" href="/">Ver carta</a>
       </div>
       {message ? <p className="mensaje" role="status">{message}</p> : null}
@@ -123,11 +123,11 @@ export function Admin() {
       {seccion === 'mesas' ? <MesasPanel mesas={mesas} recargar={cargarMesas} mostrarMensaje={setMessage} /> : null}
 
       <section className="panel productos-panel">
-        <h2>CategorÃ­as</h2>
+        <h2>Categorías</h2>
         <form onSubmit={createCategory} className="fila-formulario">
-          <label htmlFor="categoryName">Nombre de la categorÃ­a</label>
+          <label htmlFor="categoryName">Nombre de la categoría</label>
           <input id="categoryName" value={categoryName} onChange={(event) => setCategoryName(event.target.value)} required />
-          <button type="submit">{editingCategoryId ? 'Guardar categorÃ­a' : 'Agregar categorÃ­a'}</button>
+          <button type="submit">{editingCategoryId ? 'Guardar categoría' : 'Agregar categoría'}</button>
         </form>
         <ul className="lista-admin">
           {catalogo.categorias.map((categoria, index) => (
@@ -147,10 +147,10 @@ export function Admin() {
         <h2>{dish.id ? 'Editar plato' : 'Nuevo plato'}</h2>
         <form onSubmit={createDish} className="form-plato">
           <label>Nombre<input value={dish.nombre} onChange={(e) => setDish({ ...dish, nombre: e.target.value })} required /></label>
-          <label>DescripciÃ³n<textarea value={dish.descripcion} onChange={(e) => setDish({ ...dish, descripcion: e.target.value })} required /></label>
+          <label>Descripción<textarea value={dish.descripcion} onChange={(e) => setDish({ ...dish, descripcion: e.target.value })} required /></label>
           <label>Precio en MXN<input type="number" min="0" step="0.01" value={dish.precio} onChange={(e) => setDish({ ...dish, precio: e.target.value })} required /></label>
-          <label>CategorÃ­a<select value={dish.categoriaId} onChange={(e) => setDish({ ...dish, categoriaId: e.target.value })} required><option value="">Selecciona</option>{activeCategories.map((cat) => <option key={cat.id} value={cat.id}>{cat.nombre}</option>)}</select></label>
-          <fieldset><legend>AlÃ©rgenos (opcional)</legend><div className="checks">{catalogo.alergenos.map((item) => <label key={item.id}><input type="checkbox" checked={dish.alergenos.includes(String(item.id))} onChange={() => toggleAllergen(item.id)} />{item.nombre}</label>)}</div></fieldset>
+          <label>Categoría<select value={dish.categoriaId} onChange={(e) => setDish({ ...dish, categoriaId: e.target.value })} required><option value="">Selecciona</option>{activeCategories.map((cat) => <option key={cat.id} value={cat.id}>{cat.nombre}</option>)}</select></label>
+          <fieldset><legend>Alérgenos (opcional)</legend><div className="checks">{catalogo.alergenos.map((item) => <label key={item.id}><input type="checkbox" checked={dish.alergenos.includes(String(item.id))} onChange={() => toggleAllergen(item.id)} />{item.nombre}</label>)}</div></fieldset>
           <button type="submit">{dish.id ? 'Actualizar plato' : 'Guardar plato'}</button>
         </form>
       </section>
@@ -160,7 +160,7 @@ export function Admin() {
         <ul className="lista-admin platos-admin">
           {catalogo.platos.map((plato, index) => (
             <li key={plato.id}>
-              <div><strong>{plato.nombre}</strong><span>${(plato.precio_centavos / 100).toFixed(2)} Â· {catalogo.categorias.find((cat) => cat.id === plato.categoria_id)?.nombre}</span></div>
+              <div><strong>{plato.nombre}</strong>{plato.agotado_temporalmente ? <span>Agotado temporalmente</span> : null}{plato.archivado ? <span>Archivado</span> : null}<span>${(plato.precio_centavos / 100).toFixed(2)} · {catalogo.categorias.find((cat) => cat.id === plato.categoria_id)?.nombre}</span></div>
               <div className="acciones">
                 <button onClick={() => editDish(plato)}>Editar</button>
                 {!plato.archivado && index > 0 ? <button onClick={() => reorderDishes(catalogo, plato, index, action)}>Subir</button> : null}

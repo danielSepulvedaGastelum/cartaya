@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { testApp, login } from './helpers.js';
 import { preparar } from './cocina-helpers.js';
 import { abrirEventos } from '../src/server/cocina.js';
+import { createAuth } from '../src/server/auth.js';
 
 describe('Cocina: SSE', () => {
   let c, nuevo, datos, server, base, cookie, conexiones;
@@ -62,6 +63,21 @@ describe('Cocina: SSE', () => {
       expect(eventos[0].data[columna].map((p) => p.numero)).toContain(numero); colecciones(eventos[0].data);
     }
   });
+  it('logout cierra dos canales propios y conserva otra sesion', async () => {
+    const primero = await conectar(); const segundo = await conectar();
+    await primero.siguiente(); await segundo.siguiente();
+    const cookieOriginal = cookie;
+    cookie = (await c.request.post('/api/sesion').send({ password: 'cafetera-segura' }).expect(200)).headers['set-cookie'][0].split(';')[0];
+    const tercero = await conectar(); await tercero.siguiente();
+    await fetch(base + '/api/sesion', { method: 'DELETE', headers: { Cookie: cookieOriginal } });
+    const cerraron = await Promise.race([
+      Promise.all([primero.siguiente(), segundo.siguiente()].map((p) => p.then(() => false, () => true))),
+      new Promise((resolve) => setTimeout(() => resolve([false, false]), 1500))
+    ]);
+    expect(cerraron).toEqual([true, true]);
+    await c.request.post('/api/pedidos').send(datos()).expect(201);
+    expect((await tercero.siguiente()).tipo).toBe('pedido_nuevo');
+  });
   it('Panel se recupera de una desconexión', async () => {
     const a = nuevo(), b = nuevo(); const stream = await conectar(); await stream.siguiente(); await stream.cerrar();
     c.pedidos.iniciar(a.numero); c.pedidos.servir(a.numero); c.pedidos.cancelar(b.numero);
@@ -85,4 +101,23 @@ it('El stream mantiene la conexión y limpia suscriptores y temporizadores al ce
       expect(cancelar).toHaveBeenCalledOnce(); expect(vi.getTimerCount()).toBe(0); expect(res.listenerCount('close')).toBe(0);
     }
   } finally { vi.useRealTimers(); }
+});
+
+
+it('logout ejecuta todos los callbacks aunque uno falle', () => {
+  const auth = createAuth({ password: 'clave', production: false });
+  let token;
+  const loginRes = { cookie: (_name, value) => { token = value; }, json: () => {} };
+  auth.login({ body: { password: 'clave' } }, loginRes);
+  const req = { headers: { cookie: `cartaya_sesion=${token}` } };
+  auth.requireAdmin(req, { status: () => ({ json: () => {} }) }, () => {});
+  const ultimo = vi.fn();
+  req.suscribirRevocacion(() => { throw new Error('fallo de canal'); });
+  req.suscribirRevocacion(ultimo);
+  const res = { clearCookie: vi.fn(), status: () => ({ end: vi.fn() }) };
+  auth.logout(req, res);
+  expect(ultimo).toHaveBeenCalledOnce();
+  const denegado = vi.fn();
+  auth.requireAdmin(req, { status: () => ({ json: denegado }) }, () => {});
+  expect(denegado).toHaveBeenCalledWith({ error: 'Se requiere iniciar sesi\u00f3n' });
 });

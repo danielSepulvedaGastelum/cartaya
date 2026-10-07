@@ -4,15 +4,29 @@ export function abrirEventos(req, res, pedidos) {
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache',
     Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
   res.flushHeaders();
-  const enviar = (tipo, data) => res.write(`event: ${tipo}\ndata: ${JSON.stringify(data)}\n\n`);
-  const cancelar = pedidos.suscribir(({ tipo, ...data }) => enviar(tipo, data));
-  const mantenimiento = setInterval(() => res.write(': mantenimiento\n\n'), 25000);
-  const vencimiento = setTimeout(() => res.end(), Math.max(0, req.sesionExpiraEn - Date.now()));
-  res.once('close', () => {
+  let closed = false;
+  let cancelar = () => {};
+  let quitarRevocacion = () => {};
+  let mantenimiento;
+  let vencimiento;
+  const cerrar = () => {
+    if (closed) return;
+    closed = true;
     cancelar();
+    quitarRevocacion();
     clearInterval(mantenimiento);
     clearTimeout(vencimiento);
-  });
+    if (!res.writableEnded) res.end();
+  };
+  res.once('close', cerrar);
+  const enviar = (tipo, data) => {
+    if (!closed) res.write(`event: ${tipo}\ndata: ${JSON.stringify(data)}\n\n`);
+  };
+  quitarRevocacion = req.suscribirRevocacion?.(cerrar) || (() => {});
+  if (closed) return;
+  cancelar = pedidos.suscribir(({ tipo, ...data }) => enviar(tipo, data));
+  mantenimiento = setInterval(() => { if (!closed) res.write(': mantenimiento\n\n'); }, 25000);
+  vencimiento = setTimeout(cerrar, Math.max(0, req.sesionExpiraEn - Date.now()));
   enviar('snapshot', pedidos.instantanea());
 }
 

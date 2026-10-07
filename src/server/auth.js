@@ -9,6 +9,7 @@ function seguraIgual(a, b) {
 
 export function createAuth(config) {
   const sessions = new Map();
+  const sessionStreams = new Map();
 
   function parseCookies(header = '') {
     return Object.fromEntries(header.split(';').filter(Boolean).map((item) => {
@@ -36,7 +37,14 @@ export function createAuth(config) {
 
   function logout(req, res) {
     const token = parseCookies(req.headers.cookie).cartaya_sesion;
-    if (token) sessions.delete(token);
+    if (token) {
+      sessions.delete(token);
+      const streams = sessionStreams.get(token);
+      sessionStreams.delete(token);
+      if (streams) for (const close of streams) {
+        try { close(); } catch { /* Otra conexion debe cerrarse igualmente. */ }
+      }
+    }
     res.clearCookie('cartaya_sesion', { httpOnly: true, sameSite: 'lax', secure: config.production, path: '/' });
     res.status(204).end();
   }
@@ -49,6 +57,19 @@ export function createAuth(config) {
       return res.status(401).json({ error: 'Se requiere iniciar sesión' });
     }
     req.sesionExpiraEn = expires;
+    req.suscribirRevocacion = (close) => {
+      if (sessions.get(token) !== expires || expires <= Date.now()) {
+        close();
+        return () => {};
+      }
+      let streams = sessionStreams.get(token);
+      if (!streams) { streams = new Set(); sessionStreams.set(token, streams); }
+      streams.add(close);
+      return () => {
+        streams.delete(close);
+        if (!streams.size) sessionStreams.delete(token);
+      };
+    };
     next();
   }
 
